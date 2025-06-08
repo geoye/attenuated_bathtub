@@ -1,4 +1,4 @@
-Code for an improved bathtub model considering hydrological connectivity and attenuation (Wang et al., 2025).
+Code for an improved geometric inundation model considering hydrological connectivity and attenuation (Wang et al., 2025).
 
 ## Introduction
 
@@ -12,34 +12,36 @@ In this model, ocean water propagates from the current ocean and inundates the c
 Dependencies:`numpy`, `gdal`, `scipy`
 ## Example usage
 ```python
-from attenuated_bathtub import fast_attenuated_bathtub, read_img, write_img
+from atte_bathtub import fast_atte_bathtub, nan2neginf, read_img, write_img
+from osgeo import gdal
 import os
-
+import numpy as np
+import time
 
 if __name__ == '__main__':
     for atte_factor in [0, 0.01, 0.1]:
-        fd_path = f"./output/flood_depth_esl_g3_ssp585_2030_{str(atte_factor).replace('.', 'p')}.tif"
-	if not os.path.exists(fd_path):
-	    mask = read_img("./sea_land_mask_g3.tif")
-            dem, proj, geotrans = read_img("./dem_sub2030_g3.tif", is_verbose=True)
-            slr_data = read_img("./esl_g3_ssp585_2030.tif")
-            fd, fm = fast_attenuated_bathtub(dem, slr_data, mask, atte_factor=atte_factor)
-            write_img(fd_path, proj, geotrans, fd)
-            # `fm` represents the binary flooding output. 
-            # One can also write it to disk using `write_img(fm_path, proj, geotrans, fm)`
+        out_root = "./output"
+        if not os.path.exists(out_root):
+            os.makedirs(out_root)
+        out_path = f"{out_root}/flood_depth_esl_high_end_2030_{str(atte_factor).replace('.', 'p')}.tif"
+        if not os.path.exists(out_path):
+            mask = read_img("./input/sea_land_mask.tif")
+            dem, proj, geotrans = read_img("./input/dem_sub2030.tif", is_verbose=True)
+            slr_data = read_img("./input/ts_slr_high_end_2030.tif")
+            slr_data = nan2neginf(slr_data)
+            fd = fast_atte_bathtub(dem, slr_data, mask, atte_factor=atte_factor)
+            write_img(out_path, proj, geotrans, fd)
+            print(f"Finish: {out_path}")
+            del fd, dem, proj, geotrans
 ```
 
 Where:
 
-- `dem` is digital elevation model data of the research area.
-- `slr_data` is the interpolated sea level rise data for the coastal zone. **Note that only pixels on the land-ocean border will be used to model SLR!**
-- `land_sea_mask` is a binary raster indicating whether a pixel is seawater or land.
+- `dem` is digital elevation model data of the study area.
+- `slr_data` is the interpolated sea level rise data **on the land-ocean border** for the coastal zone.
+- `mask` is a binary raster indicating whether a pixel is seawater or land.
 - `atte_factor` is the attenuation factor (unit: m/pixel)
-- The output file `fd_path` represents the inundated water depth (in meter).
+- The output file in the `out_path` represents the inundated water depth (in meter).
 
 ## License
 Attribution-NonCommercial 4.0 International (CC BY-NC 4.0)
-
-## To cite the article
-
-> Wang, Y., Ye, Y., Nicholls R., et al. (2025) Development policy affects coastal risk in China more than sea-level rise. [Unpublished manuscript].
